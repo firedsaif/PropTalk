@@ -10,11 +10,11 @@
 **Goal:** everything you need to start building, all free. **Cost: $0.**
 - [ ] Free accounts: GitHub, Supabase, Cal.com, Resend, Loom, Google Sheet (CRM).
 - [ ] Retell account (use free credits — no top-up yet).
-- [ ] Local dev: Python 3.11+, `uvicorn`, a tunnel (ngrok or cloudflared — free).
-- [ ] Repo initialized; `.env` from `.env.example`; secrets stay out of git.
+- [x] Local dev: Python 3.14 + `uvicorn` installed in `backend/.venv`. *(Tunnel deferred to Phase 3 — not needed until Retell calls your tools.)*
+- [x] Repo initialized; `.env` created from `.env.example`; `secrets/` + `.env` confirmed out of git; foundation committed.
 - [ ] Read [prd.md](prd.md) + [architecture.md](architecture.md) + [rules.md](rules.md) once.
 
-**Exit:** you can run "hello world" FastAPI locally and hit it through the tunnel URL.
+**Exit:** ✅ FastAPI runs locally — `GET /health` → `{"status":"ok"}`. (Public tunnel URL comes in Phase 3.)
 
 ## Phase 1 — Data layer *(Playbook Day 1)*
 **Goal:** the database exists and the core query works. **Cost: $0.**
