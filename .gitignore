@@ -1,0 +1,31 @@
+# --- secrets: never commit ---
+secrets/
+.env
+.env.*
+!.env.example
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- node (landing page) ---
+node_modules/
+dist/
+.next/
+.vercel/
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- logs / local data ---
+*.log
+*.local

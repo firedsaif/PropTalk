@@ -1,0 +1,4 @@
+# Phase 0 — minimal foundation. More deps (pydantic-settings, httpx,
+# supabase, etc.) are added per phase; see docs/phases.md.
+fastapi
+uvicorn[standard]
