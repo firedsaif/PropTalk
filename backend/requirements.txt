@@ -3,5 +3,8 @@ fastapi
 uvicorn[standard]
 
 # Phase 1 - database access (Supabase / Postgres)
-psycopg[binary]
+psycopg[binary,pool]
 python-dotenv
+
+# Phase 2 - backend + tools
+pydantic-settings

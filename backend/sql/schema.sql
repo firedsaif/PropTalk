@@ -55,6 +55,7 @@ create table if not exists tour_bookings (
   id uuid primary key default gen_random_uuid(),
   client_id uuid,
   call_id uuid references calls(id),
+  retell_call_id text,              -- set at booking time, before the calls row exists
   property_id uuid references properties(id),
   prospect_name text,
   prospect_phone text,
@@ -64,6 +65,17 @@ create table if not exists tour_bookings (
   status text default 'booked',     -- booked | rescheduled | no_show | toured
   created_at timestamptz default now()
 );
+-- The table may already exist from Phase 1 - CREATE TABLE IF NOT EXISTS above is then a no-op,
+-- so add the Phase 2 column explicitly for re-runs against an existing database.
+alter table tour_bookings add column if not exists retell_call_id text;
+-- Idempotency: a retried book_tour call for the same call+property+slot must not create a duplicate.
+create unique index if not exists idx_tour_bookings_idempotency
+  on tour_bookings (retell_call_id, property_id, slot_start)
+  where retell_call_id is not null;
+-- Conflict guard: never let two active bookings hold the same property+slot.
+create unique index if not exists idx_tour_bookings_slot_taken
+  on tour_bookings (property_id, slot_start)
+  where status = 'booked';
 
 create table if not exists maintenance_tickets (
   id uuid primary key default gen_random_uuid(),

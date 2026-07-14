@@ -1,12 +1,16 @@
-"""PropTalk US — FastAPI backend.
+"""PropTalk US - FastAPI backend.
 
-Phase 0: a minimal, provably-running app with a health check.
-Tool endpoints (/tools/*) and the Retell webhook arrive in Phase 2.
-See docs/architecture.md for the target structure.
+Phase 2: the 6 /tools/* endpoints + /webhooks/retell. See docs/architecture.md
+for the target structure and docs/rules.md for the per-tool definition of done.
 """
 from fastapi import FastAPI
 
-app = FastAPI(title="PropTalk US API", version="0.0.1")
+from app.routes import tools, webhooks
+
+app = FastAPI(title="PropTalk US API", version="0.2.0")
+
+app.include_router(tools.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/health")
