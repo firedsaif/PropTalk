@@ -8,3 +8,6 @@ python-dotenv
 
 # Phase 2 - backend + tools
 pydantic-settings
+
+# Phase 3 - Retell provisioning + (Phase 4) outbound calls
+httpx

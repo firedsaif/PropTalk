@@ -33,14 +33,20 @@
 
 **Exit:** ✅ every tool works via curl (verified 2026-07-14). `check_tour_slots`/`book_tour` are Cal.com stubs (business-hours mock slots) until Phase 4 wires the real calendar - schema/idempotency already match the real shape. Connection pooling added (`get_pooled_connection`) since local dev is a transcontinental round trip to Supabase (Pakistan → us-east-1, ~700ms-1.3s per query even warmed) - the 800ms product budget is validated against a real deployment in Phase 5, not this dev machine.
 
-## Phase 3 — The agent *(Playbook Day 3)*
-**Goal:** a real conversation end-to-end. **Cost: $0 (free Retell credits; ~$20 top-up only if they run low).**
-- [ ] Create the Retell agent; paste the system prompt from [RETELL_AGENT_CONFIG.md](RETELL_AGENT_CONFIG.md).
-- [ ] Attach the 6 custom functions pointing at your **tunnel URL**.
-- [ ] Audition 3 ElevenLabs voices; pick the least "IVR."
-- [ ] Test with Retell **web calls** (no phone number purchase yet).
+## Phase 3 — The agent *(Playbook Day 3)* ✅ DONE
+**Goal:** a real conversation end-to-end. **Cost: $0 (free Retell credits).**
+- [x] Retell agent + LLM created **from code**, not the dashboard (`backend/scripts/retell_provision.py`) — the system prompt is read verbatim from [RETELL_AGENT_CONFIG.md](RETELL_AGENT_CONFIG.md), so no hand-paste typos. Model **gpt-4.1** (gpt-4o-mini was too weak at tool-calling — it hallucinated listings).
+- [x] All 6 custom functions + webhook attached, pointing at a `cloudflared` tunnel URL. Re-point after a tunnel rotation with `retell_provision.py update-urls` (no recreation).
+- [x] Voice: **11labs-Marissa** (warm American female) chosen from the ElevenLabs shortlist.
+- [x] Tested with Retell **web calls** (no number purchased). Credit-safe method: every tool is proven with `tests/curl/run_all.sh` *through the tunnel* before any call, so voice minutes only test agent behavior.
 
-**Exit:** a full web call qualifies a renter and reaches the booking step correctly.
+**Exit:** ✅ a full web call qualified a renter (2-bed, $1800, pet, move-in ~2wk) → real Unit 2A @ $1795 → booked a tour (verified 2026-07-14).
+
+**Bugs found via voice testing + fixed (all have curl regressions now):**
+- `check_tour_slots`/`book_tour` took a raw UUID the LLM mangled → crash. Fix: short speakable **property codes** (`2A`, `PALM`) + property lookups never cast caller input to `::uuid` (bad input → clean `not_found`, not a 500).
+- Agent passed a **2024** `move_in_by` (LLM doesn't know "today") → zero results. Fix: prompt now carries the real date via Retell `{{current_time_America/New_York}}`, and search ignores a past `move_in_by` instead of excluding everything.
+- Agent called `book_tour` **twice** (once to record SMS consent captured after booking). Idempotency already prevented a duplicate row; fix: prompt now captures consent *before* a single booking call, and an idempotent re-call refreshes `sms_consent` so the latest consent wins (TCPA).
+- Per-call latency: added an in-process **client cache** (`app/deps.py`) — halved tool latency in dev by removing a second DB round trip. Absolute latency is still dominated by the Pakistan→us-east-1 hop; that's a **Phase 5/6** concern (Railway US-East), not a code issue.
 
 ## Phase 4 — Tours + the money loop *(Playbook Days 4–5)*
 **Goal:** books real tours and sends the summary email. **Cost: $0.**

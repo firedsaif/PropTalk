@@ -10,7 +10,7 @@ from __future__ import annotations
 from psycopg.rows import dict_row
 
 SEARCH_SQL = """
-select id::text as property_id, label, beds, baths, rent,
+select code as property_id, label, beds, baths, rent,
        available_date, pets_allowed, pet_policy, highlights, address
 from properties
 where client_id = %(client_id)s::uuid
@@ -18,7 +18,9 @@ where client_id = %(client_id)s::uuid
   and (%(beds)s::int is null or beds >= %(beds)s::int)
   and (%(max_rent)s::int is null or rent <= %(max_rent)s::int)
   and (coalesce(%(pets)s::boolean, false) = false or pets_allowed = true)
-  and (%(move_in_by)s::date is null or available_date <= %(move_in_by)s::date)
+  and (%(move_in_by)s::date is null
+       or %(move_in_by)s::date < current_date  -- a past "latest move-in" is a caller/LLM date slip; ignore it, don't zero out results
+       or available_date <= %(move_in_by)s::date)
 order by rent asc, available_date asc
 limit 3
 """

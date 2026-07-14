@@ -84,15 +84,24 @@ def list_open_slots(
     return open_slots[:count]
 
 
-def get_property(conn, client_id: str, property_id: str) -> dict | None:
+def get_property(conn, client_id: str, property_ref: str) -> dict | None:
+    """Resolve a property by its LLM-facing short code (e.g. '2A'), case-insensitively.
+
+    Also accepts a raw UUID as a fallback. Neither branch casts the caller's string to
+    ::uuid, so a mangled value the LLM might send (e.g. '2') can't raise - it simply
+    matches nothing and returns None, letting the tool degrade to a clean not_found.
+    Returns the real uuid as `id` for downstream writes; `property_id` echoes the code.
+    """
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            select p.id::text as property_id, p.label, p.address, p.status, c.timezone
+            select p.id::text as id, p.code as property_id, p.label, p.address,
+                   p.status, c.timezone
             from properties p join clients c on c.id = p.client_id
-            where p.client_id = %(client_id)s::uuid and p.id = %(property_id)s::uuid
+            where p.client_id = %(client_id)s::uuid
+              and (lower(p.code) = lower(%(ref)s) or p.id::text = %(ref)s)
             """,
-            {"client_id": client_id, "property_id": property_id},
+            {"client_id": client_id, "ref": property_ref},
         )
         return cur.fetchone()
 
@@ -129,6 +138,14 @@ def book_tour(
             )
             existing = cur.fetchone()
             if existing:
+                # Idempotent re-call for the same tour (e.g. the agent re-books to record
+                # SMS consent given after the first call): keep the one booking, but let the
+                # latest explicit consent win - it's the TCPA audit value (docs/rules.md SS6).
+                cur.execute(
+                    "update tour_bookings set sms_consent = %(c)s where id = %(id)s::uuid",
+                    {"c": sms_consent, "id": existing["booking_id"]},
+                )
+                conn.commit()
                 return {"ok": True, "booking_id": existing["booking_id"], "conflict": False}
 
         try:

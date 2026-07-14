@@ -19,6 +19,7 @@ create table if not exists clients (
 create table if not exists properties (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references clients(id),
+  code text,                        -- short, speakable id the agent uses: '2A', 'PALM'
   label text not null,              -- 'Unit 4B - Willowbrook Apartments'
   address text,
   beds int,
@@ -35,6 +36,11 @@ create table if not exists properties (
   created_at timestamptz default now()
 );
 create index if not exists idx_properties_search on properties (client_id, status, beds, rent);
+-- The table may predate the `code` column (Phase 1) - add it explicitly for re-runs.
+alter table properties add column if not exists code text;
+-- The agent passes this short code back into check_tour_slots and book_tour (unique per client).
+create unique index if not exists idx_properties_code
+  on properties (client_id, lower(code)) where code is not null;
 
 create table if not exists calls (
   id uuid primary key default gen_random_uuid(),

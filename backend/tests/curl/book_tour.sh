@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")" && source _env.sh
 
-PROPERTY_ID="22222222-0000-0000-0000-000000000001"   # Unit 2A - Willowbrook Apartments
+PROPERTY_ID="2A"   # short code the agent gets from get_available_listings
 
 SLOT=$(curl -sS -X POST "${BASE_URL}/tools/check_tour_slots?client_id=${CLIENT_ID}" \
   -H 'Content-Type: application/json' \

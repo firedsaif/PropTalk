@@ -14,7 +14,7 @@ The project is built in numbered phases on a **$0-until-outreach** budget. The c
 - `docs/RETELL_AGENT_CONFIG.md` — agent system prompt + the 6 tool JSON schemas (the contract the backend must satisfy).
 - `docs/PROPTALK_US_BUILD_PLAYBOOK.md` — the full business+build playbook (schema, seed spec, GTM).
 
-**Current state:** Phase 2 (FastAPI tool endpoints + `/webhooks/retell`, curl-verified) complete. Phase 3 (create the Retell agent, attach the 6 functions, test with web calls) is next. Keep `docs/phases.md` updated as phases complete.
+**Current state:** Phase 3 complete — the Retell agent (gpt-4.1, 6 tools, webhook) is provisioned from code (`backend/scripts/retell_provision.py`) behind a `cloudflared` tunnel, and a full web call qualified a renter and booked a tour. Phase 4 (real Cal.com slots/booking + Resend summary email) is next. Keep `docs/phases.md` updated as phases complete.
 
 ## Environment
 

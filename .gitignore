@@ -29,3 +29,5 @@ Thumbs.db
 # --- logs / local data ---
 *.log
 *.local
+# Retell provisioning artifacts (agent/llm IDs + current tunnel URL)
+retell_state.json

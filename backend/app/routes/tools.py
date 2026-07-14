@@ -67,15 +67,17 @@ def check_tour_slots(body: CheckTourSlotsCall, client_id: str = Query(...)):
                 ctx["reason"] = "not_available"
                 return TourSlotsResponse(ok=False, reason="not_available")
 
-            slots = list_open_slots(conn, args.property_id, prop["timezone"], args.date_preference)
+            slots = list_open_slots(conn, prop["id"], prop["timezone"], args.date_preference)
         if not slots:
             ctx["reason"] = "no_slots"
-            return TourSlotsResponse(ok=False, reason="no_slots", property_id=args.property_id, label=prop["label"])
+            return TourSlotsResponse(
+                ok=False, reason="no_slots", property_id=prop["property_id"], label=prop["label"]
+            )
 
         ctx["ok"] = True
         return TourSlotsResponse(
             ok=True,
-            property_id=args.property_id,
+            property_id=prop["property_id"],
             label=prop["label"],
             slots=[s.isoformat() for s in slots],
         )
@@ -100,7 +102,7 @@ def book_tour(body: BookTourCall, client_id: str = Query(...)):
                 conn,
                 client_id=client_id,
                 retell_call_id=retell_call_id,
-                property_id=args.property_id,
+                property_id=prop["id"],
                 slot_start=args.slot_start_iso,
                 prospect_name=args.prospect_name,
                 prospect_phone=args.prospect_phone,
@@ -108,7 +110,7 @@ def book_tour(body: BookTourCall, client_id: str = Query(...)):
             )
             if not result["ok"]:
                 ctx["reason"] = "slot_taken"
-                next_slots = list_open_slots(conn, args.property_id, prop["timezone"])
+                next_slots = list_open_slots(conn, prop["id"], prop["timezone"])
                 return BookTourResponse(
                     ok=False, reason="slot_taken", next_available_slots=[s.isoformat() for s in next_slots]
                 )

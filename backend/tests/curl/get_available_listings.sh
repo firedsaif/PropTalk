@@ -11,3 +11,9 @@ curl -sS -w '\n%{http_code}\n' -X POST \
         "call": {"call_id": "curl-test-listings-1"},
         "args": {"beds": 2, "max_rent": 2000, "pets": true}
       }'
+
+echo; echo "--- regression: a past move_in_by (LLM date slip) must NOT zero out results ---"
+curl -sS -w '\n%{http_code}\n' -X POST \
+  "${BASE_URL}/tools/get_available_listings?client_id=${CLIENT_ID}" \
+  -H 'Content-Type: application/json' \
+  -d '{"args": {"beds": 2, "max_rent": 1800, "pets": true, "move_in_by": "2024-06-27"}}'
