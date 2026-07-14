@@ -1,4 +1,7 @@
-# Phase 0 — minimal foundation. More deps (pydantic-settings, httpx,
-# supabase, etc.) are added per phase; see docs/phases.md.
+# Phase 0 - minimal foundation. More deps added per phase; see docs/phases.md.
 fastapi
 uvicorn[standard]
+
+# Phase 1 - database access (Supabase / Postgres)
+psycopg[binary]
+python-dotenv

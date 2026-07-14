@@ -16,13 +16,13 @@
 
 **Exit:** ✅ FastAPI runs locally — `GET /health` → `{"status":"ok"}`. (Public tunnel URL comes in Phase 3.)
 
-## Phase 1 — Data layer *(Playbook Day 1)*
+## Phase 1 — Data layer *(Playbook Day 1)* ✅ DONE
 **Goal:** the database exists and the core query works. **Cost: $0.**
-- [ ] Paste `schema.sql` into Supabase (all six tables, indexes).
-- [ ] Seed Willowbrook client row + 8 varied listings (`seed_willowbrook.sql`).
-- [ ] Write + test the listing search query directly (beds / max_rent / pets / available_by).
+- [x] Schema applied to Supabase (`backend/sql/schema.sql`) — 6 tables + search index, us-east-1.
+- [x] Willowbrook client + 8 listings seeded (`backend/sql/seed_willowbrook.sql`), incl. 1 leased decoy.
+- [x] Listing search written + tested (`backend/app/services/listings.py` + `backend/scripts/test_search.py`) — 5 realistic filters return correct units; leased unit excluded.
 
-**Exit:** search returns correct listings for realistic filters.
+**Exit:** ✅ search returns correct listings for realistic filters (verified 2026-07-14).
 
 ## Phase 2 — Backend + tools *(Playbook Day 2)*
 **Goal:** all six tools + webhook live locally, curl-verified. **Cost: $0.**
