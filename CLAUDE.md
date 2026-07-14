@@ -14,7 +14,7 @@ The project is built in numbered phases on a **$0-until-outreach** budget. The c
 - `docs/RETELL_AGENT_CONFIG.md` — agent system prompt + the 6 tool JSON schemas (the contract the backend must satisfy).
 - `docs/PROPTALK_US_BUILD_PLAYBOOK.md` — the full business+build playbook (schema, seed spec, GTM).
 
-**Current state:** Phase 1 (data layer) complete. Phase 2 (FastAPI tool endpoints + `/webhooks/retell`) is next. Keep `docs/phases.md` updated as phases complete.
+**Current state:** Phase 2 (FastAPI tool endpoints + `/webhooks/retell`, curl-verified) complete. Phase 3 (create the Retell agent, attach the 6 functions, test with web calls) is next. Keep `docs/phases.md` updated as phases complete.
 
 ## Environment
 
