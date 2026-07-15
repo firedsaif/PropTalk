@@ -14,7 +14,7 @@ The project is built in numbered phases on a **$0-until-outreach** budget. The c
 - `docs/RETELL_AGENT_CONFIG.md` — agent system prompt + the 6 tool JSON schemas (the contract the backend must satisfy).
 - `docs/PROPTALK_US_BUILD_PLAYBOOK.md` — the full business+build playbook (schema, seed spec, GTM).
 
-**Current state:** Phase 3 complete — the Retell agent (gpt-4.1, 6 tools, webhook) is provisioned from code (`backend/scripts/retell_provision.py`) behind a `cloudflared` tunnel, and a full web call qualified a renter and booked a tour. Phase 4 (real Cal.com slots/booking + Resend summary email) is next. Keep `docs/phases.md` updated as phases complete.
+**Current state:** Phase 4 code complete, awaiting two free accounts. Cal.com v2 (`app/services/calcom.py`) drives `check_tour_slots`/`book_tour`; the `call_analyzed` webhook renders the summary email (`app/services/email_template.py`) and sends it via Resend. All 9 curl checks pass, but `CALCOM_API_KEY`/`CALCOM_EVENT_TYPE_ID`/`RESEND_API_KEY` are still blank, so tours fall back to generated business-hours slots and emails log as stubs. Next: paste those keys, run `python scripts\test_integrations.py --send`, then one web call to close Phase 4. Keep `docs/phases.md` updated as phases complete.
 
 ## Environment
 
@@ -34,6 +34,12 @@ uvicorn app.main:app --reload --port 8000        # http://127.0.0.1:8000/health 
 # database (needs DATABASE_URL in root .env — Supabase Session pooler URI)
 python scripts\apply_sql.py                        # apply schema.sql + seed (idempotent)
 python scripts\test_search.py                      # Phase 1 verification: 5 search scenarios
+python scripts\reset_demo_state.py                 # clear calls/bookings/tickets; keeps the seed
+
+# Phase 4 — both free, neither costs a voice minute
+python scripts\test_integrations.py                # preflight: are Cal.com/Resend keys live?
+python scripts\test_integrations.py --send         # ...and send one real summary email
+python scripts\preview_summary_email.py            # render all 6 email variants offline -> tests/email_preview/
 
 # expose backend to Retell (Phase 3; no tunnel tool installed yet)
 cloudflared tunnel --url http://localhost:8000     # then update Retell function URLs

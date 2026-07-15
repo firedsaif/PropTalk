@@ -12,8 +12,9 @@ echo "Base URL: $BASE_URL"
 echo
 
 fail=0
-for script in get_available_listings check_tour_slots book_tour \
-              create_maintenance_ticket escalate_emergency take_message webhooks_retell; do
+for script in get_available_listings check_tour_slots book_tour reschedule_tour \
+              create_maintenance_ticket escalate_emergency take_message \
+              webhooks_retell summary_email; do
     echo "=== ${script} ==="
     out="$(bash "${script}.sh" 2>&1)"
     echo "$out"

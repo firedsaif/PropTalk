@@ -11,6 +11,7 @@ def create_emergency_ticket(
     conn,
     *,
     client_id: str,
+    retell_call_id: str | None,
     escalation_phone: str | None,
     unit: str,
     issue: str,
@@ -22,13 +23,15 @@ def create_emergency_ticket(
         cur.execute(
             """
             insert into maintenance_tickets
-                (client_id, unit, issue_type, severity, description, callback_number)
+                (client_id, retell_call_id, unit, issue_type, severity, description, callback_number)
             values
-                (%(client_id)s::uuid, %(unit)s, 'emergency', %(severity)s, %(description)s, %(callback_number)s)
+                (%(client_id)s::uuid, %(retell_call_id)s, %(unit)s, 'emergency', %(severity)s,
+                 %(description)s, %(callback_number)s)
             returning id::text as ticket_id
             """,
             {
                 "client_id": client_id,
+                "retell_call_id": retell_call_id,
                 "unit": unit,
                 "severity": MAINTENANCE_SEVERITY_EMERGENCY,
                 "description": description,

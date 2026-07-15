@@ -58,7 +58,7 @@ def check_tour_slots(body: CheckTourSlotsCall, client_id: str = Query(...)):
     with timed_tool("check_tour_slots", client_id=client_id, retell_call_id=retell_call_id) as ctx:
         args = body.args
         with get_pooled_connection() as conn:
-            resolve_client(conn, client_id)
+            client = resolve_client(conn, client_id)
             prop = get_property(conn, client_id, args.property_id)
             if prop is None:
                 ctx["reason"] = "not_found"
@@ -67,7 +67,12 @@ def check_tour_slots(body: CheckTourSlotsCall, client_id: str = Query(...)):
                 ctx["reason"] = "not_available"
                 return TourSlotsResponse(ok=False, reason="not_available")
 
-            slots = list_open_slots(conn, prop["id"], prop["timezone"], args.date_preference)
+            slots = list_open_slots(
+                conn,
+                client=client,
+                property_id=prop["id"],
+                date_preference=args.date_preference,
+            )
         if not slots:
             ctx["reason"] = "no_slots"
             return TourSlotsResponse(
@@ -89,7 +94,7 @@ def book_tour(body: BookTourCall, client_id: str = Query(...)):
     with timed_tool("book_tour", client_id=client_id, retell_call_id=retell_call_id) as ctx:
         args = body.args
         with get_pooled_connection() as conn:
-            resolve_client(conn, client_id)
+            client = resolve_client(conn, client_id)
             prop = get_property(conn, client_id, args.property_id)
             if prop is None:
                 ctx["reason"] = "not_found"
@@ -100,9 +105,10 @@ def book_tour(body: BookTourCall, client_id: str = Query(...)):
 
             result = book_tour_service(
                 conn,
-                client_id=client_id,
+                client=client,
                 retell_call_id=retell_call_id,
                 property_id=prop["id"],
+                property_label=prop["label"],
                 slot_start=args.slot_start_iso,
                 prospect_name=args.prospect_name,
                 prospect_phone=args.prospect_phone,
@@ -110,12 +116,15 @@ def book_tour(body: BookTourCall, client_id: str = Query(...)):
             )
             if not result["ok"]:
                 ctx["reason"] = "slot_taken"
-                next_slots = list_open_slots(conn, prop["id"], prop["timezone"])
+                next_slots = list_open_slots(conn, client=client, property_id=prop["id"])
                 return BookTourResponse(
                     ok=False, reason="slot_taken", next_available_slots=[s.isoformat() for s in next_slots]
                 )
 
         ctx["ok"] = True
+        # `calendar` is for our logs/QA, not the caller: whether Cal.com accepted the
+        # mirror doesn't change what the agent says, because the booking is real either way.
+        ctx["reason"] = None if result["calendar"] in ("booked", "skipped") else result["calendar"]
         return BookTourResponse(
             ok=True,
             booking_id=result["booking_id"],
@@ -135,6 +144,7 @@ def create_maintenance_ticket(body: CreateMaintenanceTicketCall, client_id: str 
             ticket_id = maintenance.create_ticket(
                 conn,
                 client_id=client_id,
+                retell_call_id=retell_call_id,
                 unit=args.unit,
                 issue_type=args.issue_type,
                 description=args.description,
@@ -155,6 +165,7 @@ def escalate_emergency(body: EscalateEmergencyCall, client_id: str = Query(...))
             result = create_emergency_ticket(
                 conn,
                 client_id=client_id,
+                retell_call_id=retell_call_id,
                 escalation_phone=client["escalation_phone"],
                 unit=args.unit,
                 issue=args.issue,
@@ -175,6 +186,7 @@ def take_message(body: TakeMessageCall, client_id: str = Query(...)):
             message_id = messages.create_message(
                 conn,
                 client_id=client_id,
+                retell_call_id=retell_call_id,
                 caller_name=args.caller_name,
                 callback_number=args.callback_number,
                 reason=args.reason,

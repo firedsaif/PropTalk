@@ -13,11 +13,30 @@ SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 
 
 def split_statements(sql: str) -> list[str]:
-    """Split a .sql file into statements, ignoring ';' inside single-quoted strings."""
+    """Split a .sql file into statements on top-level ';'.
+
+    A ';' is only a separator outside single-quoted strings *and* outside '--' comments -
+    the schema documents itself heavily, and a semicolon in prose ("null = degraded; add
+    manually") would otherwise silently cut a CREATE TABLE in half.
+    """
     stmts: list[str] = []
     buf: list[str] = []
     in_str = False
-    for ch in sql:
+    in_comment = False
+    i = 0
+    while i < len(sql):
+        ch = sql[i]
+        if in_comment:
+            buf.append(ch)
+            if ch == "\n":
+                in_comment = False
+            i += 1
+            continue
+        if not in_str and ch == "-" and sql[i : i + 2] == "--":
+            in_comment = True
+            buf.append(ch)
+            i += 1
+            continue
         if ch == "'":
             in_str = not in_str
         if ch == ";" and not in_str:
@@ -27,6 +46,7 @@ def split_statements(sql: str) -> list[str]:
             buf = []
         else:
             buf.append(ch)
+        i += 1
     tail = "".join(buf).strip()
     if tail:
         stmts.append(tail)

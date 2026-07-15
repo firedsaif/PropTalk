@@ -66,18 +66,22 @@ create table if not exists tour_bookings (
   prospect_name text,
   prospect_phone text,
   slot_start timestamptz,
-  cal_booking_id text,
+  cal_booking_id text,              -- Cal.com booking uid (Phase 4); null = calendar write degraded
   sms_consent bool default false,   -- captured verbally on-call (TCPA)
-  status text default 'booked',     -- booked | rescheduled | no_show | toured
+  status text default 'booked',     -- booked | rescheduled | cancelled | no_show | toured
   created_at timestamptz default now()
 );
 -- The table may already exist from Phase 1 - CREATE TABLE IF NOT EXISTS above is then a no-op,
 -- so add the Phase 2 column explicitly for re-runs against an existing database.
 alter table tour_bookings add column if not exists retell_call_id text;
 -- Idempotency: a retried book_tour call for the same call+property+slot must not create a duplicate.
+-- Scoped to status='booked' (Phase 4): once a slot is released by a reschedule/cancel it must be
+-- re-bookable, including by the call that originally held it ("actually, make it 10am after all").
+-- Dropped first so a database created before Phase 4 picks up the narrower predicate.
+drop index if exists idx_tour_bookings_idempotency;
 create unique index if not exists idx_tour_bookings_idempotency
   on tour_bookings (retell_call_id, property_id, slot_start)
-  where retell_call_id is not null;
+  where retell_call_id is not null and status = 'booked';
 -- Conflict guard: never let two active bookings hold the same property+slot.
 create unique index if not exists idx_tour_bookings_slot_taken
   on tour_bookings (property_id, slot_start)
@@ -87,6 +91,7 @@ create table if not exists maintenance_tickets (
   id uuid primary key default gen_random_uuid(),
   client_id uuid,
   call_id uuid,
+  retell_call_id text,              -- set at tool time, before the calls row exists
   unit text,
   issue_type text,
   severity text check (severity in ('routine','urgent','emergency')),
@@ -101,9 +106,19 @@ create table if not exists messages (
   id uuid primary key default gen_random_uuid(),
   client_id uuid,
   call_id uuid,
+  retell_call_id text,              -- set at tool time, before the calls row exists
   caller_name text,
   callback_number text,
   reason text,
   body text,
   created_at timestamptz default now()
 );
+
+-- Phase 4: the post-call summary email reports what happened on *this* call, so every
+-- outcome table needs to be findable by retell_call_id (tour_bookings already was).
+-- Added explicitly for re-runs against a database created before Phase 4.
+alter table maintenance_tickets add column if not exists retell_call_id text;
+alter table messages add column if not exists retell_call_id text;
+create index if not exists idx_maintenance_tickets_call on maintenance_tickets (retell_call_id);
+create index if not exists idx_messages_call on messages (retell_call_id);
+create index if not exists idx_tour_bookings_call on tour_bookings (retell_call_id);

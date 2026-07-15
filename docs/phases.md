@@ -1,6 +1,6 @@
 # PropTalk US — Build Phases
 
-**Last updated:** 2026-07-13 · Doubles as the progress tracker — check boxes as you go. Companion to [prd.md](prd.md), [architecture.md](architecture.md), [rules.md](rules.md).
+**Last updated:** 2026-07-15 · Doubles as the progress tracker — check boxes as you go. Companion to [prd.md](prd.md), [architecture.md](architecture.md), [rules.md](rules.md).
 
 > **Sequencing principle (your constraint):** build and validate the *entire* product on **$0**, and push every paid tool as late as possible. Real money starts at outreach, not at build. The **Money timeline** at the bottom is the map.
 
@@ -48,15 +48,27 @@
 - Agent called `book_tour` **twice** (once to record SMS consent captured after booking). Idempotency already prevented a duplicate row; fix: prompt now captures consent *before* a single booking call, and an idempotent re-call refreshes `sms_consent` so the latest consent wins (TCPA).
 - Per-call latency: added an in-process **client cache** (`app/deps.py`) — halved tool latency in dev by removing a second DB round trip. Absolute latency is still dominated by the Pakistan→us-east-1 hop; that's a **Phase 5/6** concern (Railway US-East), not a code issue.
 
-## Phase 4 — Tours + the money loop *(Playbook Days 4–5)*
+## Phase 4 — Tours + the money loop *(Playbook Days 4–5)* 🟡 CODE DONE — needs 2 free accounts
 **Goal:** books real tours and sends the summary email. **Cost: $0.**
-- [ ] Cal.com event type "Property Tour (30 min)"; wire `check_tour_slots` + `book_tour` (store UTC, speak local).
-- [ ] Test: book, reschedule, **double-book attempt** (must offer next slot, never overwrite).
-- [ ] Post-call: generate summary (use Retell `call_analyzed` — no extra LLM bill) → email via Resend.
-- [ ] Make the summary email **beautiful** — it's the #1 sales artifact.
-- [ ] Keep SMS **off** (`FEATURE_SMS_ENABLED=false`) — Twilio deferred; the email carries the value.
+- [x] Cal.com client written (`app/services/calcom.py`, API v2) + `check_tour_slots`/`book_tour` wired to it (store UTC, speak local — verified: slot stored `14:00Z` → email says `10:00 AM EDT`).
+- [x] Test: book, **reschedule**, **double-book attempt** — `tests/curl/reschedule_tour.sh` + `book_tour.sh`, both green.
+- [x] Post-call summary from Retell `call_analyzed` (no extra LLM bill) → Resend email (`app/services/notify.py`).
+- [x] Summary email built and previewed (`app/services/email_template.py`, 6 variants via `scripts/preview_summary_email.py`).
+- [x] SMS still **off** (`FEATURE_SMS_ENABLED=false`) — preflight asserts it.
+- [ ] **Blocked on you (5 min, free):** create the Cal.com + Resend accounts, add 3 keys to `.env`, then `python scripts\test_integrations.py --send`.
+- [ ] Then: one web call → real booking on the calendar → summary email in the inbox.
 
 **Exit:** a web call → booking on the calendar → summary email in the inbox. No spend yet.
+
+**Design decisions worth remembering:**
+- **DB first, calendar second.** The partial unique indexes on `tour_bookings` are what make double-booking impossible (atomic); Cal.com is a mirror. A booking whose Cal.com write fails is *kept* (the caller was told it's booked) with `cal_booking_id` null, and the summary email tells the PM to add it by hand — a loud, visible degrade instead of a silent lie.
+- **No fake slots.** If Cal.com is unreachable, `check_tour_slots` returns empty rather than falling back to generated business hours — offering a time we can't book is the fabrication `rules.md §3` forbids. The generator survives only as the *no-account* path.
+- **Reschedule needs no new tool.** The agent just calls `book_tour` again; the backend matches the same prospect (phone + same unit) and moves the tour, releasing the old slot. Only ever touches a booking made by that same phone number.
+- **Cal.com needs an attendee email; phone callers don't have one.** We mint `notify_email +tour-<digits>` so the invite lands in the PM's own inbox. No change to the agent prompt or the 6 tool schemas.
+
+**Known Phase 5 follow-ups (deliberate, not bugs):**
+- `book_tour` now waits on a Cal.com round trip inside the voice path, so it will exceed the 800ms budget. That's the right trade (we must know the slot is really ours before the agent confirms) — Phase 5's "filler on slow tools" is the answer, not removing the check.
+- Resend free tier only delivers to your own signup address until a domain is verified; `clients.notify_email` must be that address for now.
 
 ## Phase 5 — Latency + the gauntlet *(Playbook Days 6–8, Gate A)*
 **Goal:** it's reliably good. **Cost: first real spend — ~$20 Retell top-up for test minutes if free credits are gone.**

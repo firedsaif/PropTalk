@@ -66,6 +66,18 @@ def upsert_call(
         _apply_minutes_used(conn, client_id=client_id, minutes=math.ceil(duration_sec / 60))
 
 
+def set_call_outcome(conn, *, retell_call_id: str, outcome: str) -> None:
+    """Stamp what the call produced (Phase 4). Kept out of upsert_call because it's
+    derived from rows written *during* the call, so it's only knowable once those are
+    committed - i.e. at call_analyzed, not at call_started."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "update calls set outcome = %(outcome)s where retell_call_id = %(id)s",
+            {"outcome": outcome, "id": retell_call_id},
+        )
+    conn.commit()
+
+
 def _apply_minutes_used(conn, *, client_id: str, minutes: int) -> None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
