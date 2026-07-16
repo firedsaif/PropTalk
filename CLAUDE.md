@@ -14,7 +14,7 @@ The project is built in numbered phases on a **$0-until-outreach** budget. The c
 - `docs/RETELL_AGENT_CONFIG.md` — agent system prompt + the 6 tool JSON schemas (the contract the backend must satisfy).
 - `docs/PROPTALK_US_BUILD_PLAYBOOK.md` — the full business+build playbook (schema, seed spec, GTM).
 
-**Current state:** Phase 4 code complete, awaiting two free accounts. Cal.com v2 (`app/services/calcom.py`) drives `check_tour_slots`/`book_tour`; the `call_analyzed` webhook renders the summary email (`app/services/email_template.py`) and sends it via Resend. All 9 curl checks pass, but `CALCOM_API_KEY`/`CALCOM_EVENT_TYPE_ID`/`RESEND_API_KEY` are still blank, so tours fall back to generated business-hours slots and emails log as stubs. Next: paste those keys, run `python scripts\test_integrations.py --send`, then one web call to close Phase 4. Keep `docs/phases.md` updated as phases complete.
+**Current state:** Phase 4 done except the calendar. **Resend is live** — the `call_analyzed` webhook renders (`app/services/email_template.py`) and sends a real summary email; all 9 curl checks pass. **Cal.com is blocked from the dev network** (Cloudflare challenges every request, even unauthenticated — not the key, not the code), so `CALCOM_API_KEY` is *commented out* in `.env` and tours use the business-hours fallback. Leaving it set would make `check_tour_slots` return zero slots — it refuses to invent times — which silently kills the demo. `app/services/calcom.py` has never seen a live response; it gets its first real test on the Phase 6 Railway US-East deploy. Full detail in [docs/phases.md](docs/phases.md) Phase 4. Next: Phase 5 (gauntlet), which doesn't need Cal.com.
 
 ## Environment
 

@@ -55,10 +55,21 @@
 - [x] Post-call summary from Retell `call_analyzed` (no extra LLM bill) → Resend email (`app/services/notify.py`).
 - [x] Summary email built and previewed (`app/services/email_template.py`, 6 variants via `scripts/preview_summary_email.py`).
 - [x] SMS still **off** (`FEATURE_SMS_ENABLED=false`) — preflight asserts it.
-- [ ] **Blocked on you (5 min, free):** create the Cal.com + Resend accounts, add 3 keys to `.env`, then `python scripts\test_integrations.py --send`.
-- [ ] Then: one web call → real booking on the calendar → summary email in the inbox.
+- [x] **Resend verified live** (2026-07-16): real summary email delivered from `onboarding@resend.dev`. Free tier only delivers to your own signup address until a domain is verified, so `clients.notify_email` is set to it directly in the DB — deliberately *not* in `seed_willowbrook.sql`, which is public. `apply_sql.py` won't clobber it (`on conflict do nothing`).
+- [ ] **Cal.com blocked — not a code problem, a network one. See below.** Verify on the Phase 6 deploy.
+- [ ] Then: one web call → summary email in the inbox (calendar half deferred with Cal.com).
 
 **Exit:** a web call → booking on the calendar → summary email in the inbox. No spend yet.
+*Amended 2026-07-16:* the email half is met. The calendar half moves to Phase 6 (below). Phase 5's gauntlet doesn't depend on Cal.com — it tests agent behaviour and latency against the business-hours fallback, so this is not a Gate A blocker.
+
+> ### ⚠️ Cal.com is unreachable from the dev network (found 2026-07-16)
+> Every request to `cal.com`/`api.cal.com` from here returns **403 with a Cloudflare "Just a moment..." challenge** — including *unauthenticated* requests and the plain homepage, while `api.resend.com` answers normally from the same machine. DNS and TLS are fine. So it's **not the API key** (`cal_live_`, correct shape) and not our code: Cloudflare is challenging non-browser clients from this network/region. A browser reaches `app.cal.com` fine because it silently solves the JS challenge; an API client can't, and defeating a bot challenge is not on the table.
+>
+> **Current state:** `CALCOM_API_KEY` is *commented out* in the root `.env` (value preserved, with a note). This matters: a **set** key makes `check_tour_slots` correctly return **no slots** — it won't invent times it can't book — which silently kills the demo. Commented out, tours use the business-hours generator and everything works.
+>
+> **What's unproven:** `app/services/calcom.py` is written from Cal.com's v2 docs but has **never seen a live response**. Treat its parsers as unverified until a real call proves them. Event type `6330414` ("Property Tour (30 min)") is configured and waiting.
+>
+> **To close it (Phase 6, on Railway US-East):** uncomment `CALCOM_API_KEY`, run `python scripts\test_integrations.py` **there** — a US server IP is very unlikely to be challenged. If it still is, Cal.com support can allowlist the key, and the fallback keeps the product shippable meanwhile.
 
 **Design decisions worth remembering:**
 - **DB first, calendar second.** The partial unique indexes on `tour_bookings` are what make double-booking impossible (atomic); Cal.com is a mirror. A booking whose Cal.com write fails is *kept* (the caller was told it's booked) with `cal_booking_id` null, and the summary email tells the PM to add it by hand — a loud, visible degrade instead of a silent lie.
@@ -82,6 +93,7 @@
 **Goal:** a real number people can call, and demo assets. **Cost: ~$25–50 one-time/first-month.**
 - [ ] Buy the voice number **inside Retell** (~$2/mo).
 - [ ] Deploy backend to **Railway** hobby, US-East ($5/mo) — swap tunnel URL for the stable one in Retell.
+- [ ] **Close out Phase 4's calendar half here:** uncomment `CALCOM_API_KEY` and run `python scripts\test_integrations.py` from the deploy — Cal.com is Cloudflare-challenged from the dev network (see Phase 4). First real exercise of `app/services/calcom.py`; budget time to fix its parsers against a live response.
 - [ ] Record the 90-second Loom; build the one-page landing site (a free Vercel/Carrd subdomain is fine to start).
 - [ ] Personalized-demo playbook ready (scrape a prospect's listings → new client + properties → their name in the greeting).
 
