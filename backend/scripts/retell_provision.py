@@ -61,6 +61,31 @@ LLM_TEMPERATURE = 0.2
 # Fallback voice if --voice-id isn't given and auto-pick finds nothing. Overridable.
 DEFAULT_VOICE_ID = "11labs-Anna"
 
+# --- Phase 5 tuning (docs/phases.md Phase 5 / docs/gauntlet.md) -------------------------
+# COST GUARD. Retell's default is 3_600_000 - a full hour. At the measured blended rate
+# (~$0.11/min, see docs/gauntlet.md), ONE forgotten open tab burns ~$6.70, which is most
+# of a $10 balance. No leasing call legitimately runs 10 minutes, so cap it: worst case
+# becomes ~$1.10 instead of ~$6.70. Drop to 300_000 while running the gauntlet if funds
+# are tight - no gauntlet scenario needs 5 minutes.
+MAX_CALL_DURATION_MS = 600_000  # 10 min
+
+# Dead air is billed like conversation. Long enough that the 10-second-silence scenario
+# still exercises the reminder (below) rather than hanging up on the caller.
+END_CALL_AFTER_SILENCE_MS = 30_000
+
+# "Are you still there?" before giving up. Gauntlet scenario 13.
+REMINDER_TRIGGER_MS = 10_000
+REMINDER_MAX_COUNT = 2
+
+# STT hints. These are exactly the tokens a caller says that generic English models get
+# wrong - unit codes read as words ("to A", "five sea") and the local street names. Cheap
+# insurance for the heavy-accent and background-noise scenarios (gauntlet 2 and 3).
+# Keep in sync with sql/seed_willowbrook.sql; per-client codes would come from the DB.
+BOOSTED_KEYWORDS = [
+    "Willowbrook", "Bayshore", "Palm Grove", "Tampa",
+    "2A", "5C", "1B", "3D", "4B", "2C", "PALM", "BAY",
+]
+
 # --- the 6 tools (parameter schemas mirror docs/RETELL_AGENT_CONFIG.md SS C) -------------
 # speak_during: say a short filler while the tool runs (good for the lookup/booking tools).
 # All tools speak_after so the agent always folds the result into its next line.
@@ -309,18 +334,36 @@ def _llm_payload(base_url: str) -> dict:
     }
 
 
+def _agent_settings() -> dict:
+    """Voice/turn-taking/STT/cost knobs — everything on the agent that isn't identity or
+    routing. Kept separate from _agent_payload so update-urls can re-PATCH the SAME dict:
+    a tuning change here must reach the live agent, not just apply on a fresh create."""
+    return {
+        "language": "en-US",
+        "voice_speed": 1.0,
+        # responsiveness/interruption_sensitivity are 0-1; 1 = fastest reply + easiest to
+        # interrupt. Interruptibility is a Gate-A requirement (gauntlet scenario 1), and a
+        # snappy reply is the whole latency story on the voice side.
+        "interruption_sensitivity": 1,
+        "enable_backchannel": True,
+        "responsiveness": 1,
+        # Phase 5 additions - see the constants block up top for the reasoning.
+        "max_call_duration_ms": MAX_CALL_DURATION_MS,
+        "end_call_after_silence_ms": END_CALL_AFTER_SILENCE_MS,
+        "reminder_trigger_ms": REMINDER_TRIGGER_MS,
+        "reminder_max_count": REMINDER_MAX_COUNT,
+        "boosted_keywords": BOOSTED_KEYWORDS,
+        "post_call_analysis_model": "gpt-4o-mini",
+    }
+
+
 def _agent_payload(llm_id: str, base_url: str, voice_id: str) -> dict:
     return {
         "response_engine": {"type": "retell-llm", "llm_id": llm_id},
         "voice_id": voice_id,
         "agent_name": "Willowbrook - Maya (demo)",
         "webhook_url": webhook_url(base_url),
-        "language": "en-US",
-        "voice_speed": 1.0,
-        "interruption_sensitivity": 1,
-        "enable_backchannel": True,
-        "responsiveness": 1,
-        "post_call_analysis_model": "gpt-4o-mini",
+        **_agent_settings(),
     }
 
 
@@ -375,8 +418,14 @@ def cmd_update_urls(args) -> None:
         print(f"Syncing LLM (model={LLM_MODEL}, {len(TOOL_SPECS)} tools) ...")
         r = c.patch(f"/update-retell-llm/{state['llm_id']}", json=_llm_payload(base_url))
         r.raise_for_status()
-        print("Syncing agent webhook ...")
-        r = c.patch(f"/update-agent/{state['agent_id']}", json={"webhook_url": webhook_url(base_url)})
+        # Push webhook URL *and* the agent tuning (cost cap, endpointing, STT boosts).
+        # Previously this patched only the webhook, so any _agent_settings() change silently
+        # never reached the live agent - the cost guard among them.
+        print("Syncing agent (webhook + tuning: cost cap, endpointing, STT) ...")
+        r = c.patch(
+            f"/update-agent/{state['agent_id']}",
+            json={"webhook_url": webhook_url(base_url), **_agent_settings()},
+        )
         r.raise_for_status()
     state["base_url"] = base_url
     save_state(state)
